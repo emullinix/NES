@@ -1,3 +1,4 @@
+from EvanNES import Memory
 __author__ = 'Evan'
 
 class CPU(object):
@@ -13,62 +14,77 @@ class CPU(object):
     brk   = 0
     oflow = 0
     neg   = 0
-    memory = [3,4]
+    decimal = 0
+    memory = None
+
+    def getP(self):
+        return [0, 1][self.carry] + [0, 2][self.zero] + [0,4][self.imask] + [0, 8][self.decimal] + 32 + [0, 64][self.oflow] + [0, 128][self.neg]
+
+    def setP(self, p):
+        self.carry   = p & 1
+        self.zero    = (p >> 1) & 1
+        self.imask   = (p >> 2) & 1
+        self.decimal = (p >> 3) & 1
+        self.oflow   = (p >> 6) & 1
+        self.neg     = (p >> 7) & 1
+
+    def __init__(self, filename):
+        self.memory = Memory.Memory(filename)
 
     def implicitOp(self, op):
-        op()
+        op(self)
         return 0
 
     def accumulatorOp(self, op):
-        op(imm = self.A)
+        op(self, imm = self.A)
         return 0
 
     def immediateOp(self, op):
-        op(imm = self.memory[self.PC + 1])
+        op(self, imm = self.memory[self.PC + 1])
         return 0
 
     def zeroPageOp(self, op):
-        op(adr = self.memory[self.PC + 1])
+        op(self, adr = self.memory[self.PC + 1])
         return 0
 
     def zeroPageXOp(self, op):
-        op(adr = (self.memory[self.PC + 1] + self.X) & 0xFF)
+        op(self, adr = (self.memory[self.PC + 1] + self.X) & 0xFF)
         return 0
 
     def zeroPageYOp(self, op):
-        op(adr = (self.memory[self.PC + 1] + self.X) & 0xFF)
+        op(self, adr = (self.memory[self.PC + 1] + self.X) & 0xFF)
         return 0
 
     def absoluteOp(self, op):
-        op(adr = self.memory[self.PC + 1] + (self.memory[self.PC + 2] << 8))
+        op(self, adr = self.memory[self.PC + 1] + (self.memory[self.PC + 2] << 8))
         return 0
 
     def absoluteXOp(self, op, checkpage = False):
         low = self.memory[self.PC + 1]
         cycles = [0, 1][checkpage and low + self.X > 0xFF] # TODO check negative?
-        op(adr = low + (self.memory[self.PC + 2] << 8) + self.X)
+        op(self, adr = low + (self.memory[self.PC + 2] << 8) + self.X)
         return cycles
 
     def absoluteYOp(self, op, checkpage = False):
         low = self.memory[self.PC + 1]
         cycles = [0, 1][checkpage and low + self.Y > 0xFF]
-        op(adr = low + (self.memory[self.PC + 2] << 8) + self.Y)
+        op(self, adr = low + (self.memory[self.PC + 2] << 8) + self.Y)
         return cycles
 
     def indirectOp(self, op):
         target = self.memory[self.PC + 1] + (self.memory[self.PC + 2] << 8)
-        op(adr = self.memory[target] + (self.memory[target + 1] << 8))
+        op(self, adr = self.memory[target] + (self.memory[target + 1] << 8))
         return 0
 
     def indirectXOp(self, op):
         adrlsb = (self.memory[self.PC + 1] + self.X) & 0xFF
-        op(adr = self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8))
+        op(self, adr = self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8))
         return 0
 
     def indirectYOp(self, op, checkpage = False):
         adrlsb = self.memory[self.PC + 1]
         cycles = [0, 1][checkpage and self.memory[adrlsb] + self.Y > 0xFF]
-        op(adr = self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8) + self.Y)
+        op(self, adr = self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8) + self.Y)
         return cycles
 
     def relativeOp(self, op):
@@ -79,7 +95,7 @@ class CPU(object):
         cycles = 1
         if pclow + offset + 2 > 255 or pclow + offset + 2 < 0:
             cycles = 2
-        return 2 + [0, cycles][op(adr=offset)]
+        return 2 + [0, cycles][op(self, adr=offset)]
 
     def ADC(self, imm = 0, adr = -1):
         if adr != -1:
@@ -601,8 +617,8 @@ class CPU(object):
         op = self.ops[self.memory[self.PC]]
         rv = op[2][0]
         if op[2][1]:
-            rv += op[4](op[3], checkpage=True)
+            rv += op[4](self, op[3], checkpage=True)
         else:
-            rv += op[4](op[3])
+            rv += op[4](self, op[3])
         self.PC += op[1]
         return rv

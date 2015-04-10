@@ -1,7 +1,43 @@
 __author__ = 'Evan'
 
+
+class OAM(object):
+    x = 0
+    y = 0 # 0xEF - 0xFF means hidden
+    tileIndex = 0
+    palette = 4 # 4 - 7
+    inBack = False
+    flipH = False
+    flipV = False
+
+    def __init__(self):
+        pass
+
+    def __getitem__(self, item):
+        if item == 0:
+            return self.y
+        elif item == 1:
+            return self.tileIndex
+        elif item == 2:
+            return (self.palette & 0x3) | (self.inBack << 5) | (self.flipH << 6) | (self.flipV << 7)
+        elif item == 3:
+            return self.x
+
+    def __setitem__(self, key, value):
+        if key == 0:
+            self.y = value
+        elif key == 1:
+            self.tileIndex = value
+        elif key == 2:
+            self.palette = (value & 0x3) | 0x4
+            self.inBack  = (value & 0x20) == 0x20
+            self.flipH   = (value & 0x40) == 0x40
+            self.flipV   = (value & 0x80) == 0x80
+        elif key == 3:
+            self.x = value
+
 class PPU(object):
-    scanLine = 261
+    scanLine = 241
     cycle = 0
     vblank = False
     sprite0 = False
@@ -11,8 +47,8 @@ class PPU(object):
     bgPixelHi = 0   # 16 bits
     bgPalAttrLo = 0  # 8 bits
     bgPalAttrHi = 0  # 8 bits
-    primaryOAM  = OAM[64]
-    secondaryOAM = OAM[8]
+    primaryOAM   = [OAM() for i in range(64)]
+    secondaryOAM = [OAM() for i in range(8)]
     oamAddr   = 0
     spPixelLo = bytearray(8)
     spPixelHi = bytearray(8)
@@ -133,38 +169,3 @@ class PPU(object):
             elif item == 0x2007:
                 item & 0x3FFF
             return rv
-
-
-
-
-class OAM(object):
-    x = 0
-    y = 0 # 0xEF - 0xFF means hidden
-    tileIndex = 0
-    palette = 4 # 4 - 7
-    inBack = False
-    flipH = False
-    flipV = False
-
-    def __getitem__(self, item):
-        if item == 0:
-            return self.y
-        elif item == 1:
-            return self.tileIndex
-        elif item == 2:
-            return (self.palette & 0x3) | (self.inBack << 5) | (self.flipH << 6) | (self.flipV << 7)
-        elif item == 3:
-            return self.x
-
-    def __setitem__(self, key, value):
-        if key == 0:
-            self.y = value
-        elif key == 1:
-            self.tileIndex = value
-        elif key == 2:
-            self.palette = (value & 0x3) | 0x4
-            self.inBack  = (value & 0x20) == 0x20
-            self.flipH   = (value & 0x40) == 0x40
-            self.flipV   = (value & 0x80) == 0x80
-        elif key == 3:
-            self.x = value

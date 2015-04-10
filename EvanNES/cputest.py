@@ -1,3 +1,7 @@
+from EvanNES import CPU
+from EvanNES import PPU
+from EvanNES import Memory
+
 __author__ = 'Evan'
 filename   = 'E:\\Downloads\\nestest.nes'
 
@@ -28,3 +32,17 @@ for i in [11, 12, 13, 14, 15]:
     if header[i] != 0:
         print('Warning: header byte %d is not zero (%c)' % (i, header[i]))
 
+
+cyc = 0
+cpu = CPU.CPU(filename)
+cpu.PC = 0xC000
+cpu.SP = 0xFD
+cpu.setP(0x24)
+ppu = PPU.PPU()
+
+while True:
+    print('%X A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3d SL:%3d\n' % (cpu.PC, cpu.A, cpu.X, cpu.Y, cpu.getP(), cpu.SP, cyc, ppu.scanLine))
+    ticks = 3 * cpu.step()
+    for i in range(ticks):
+        ppu.step()
+    cyc = (cyc + ticks) % 341
