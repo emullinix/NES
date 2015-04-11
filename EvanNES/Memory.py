@@ -7,18 +7,24 @@ class Memory(object):
 
     def __init__(self, filename):
         with open(filename, 'rb') as f:
-            header = f.read(16)
-            for i in range(0, header[4]):
-                self.PRGROM = bytes(f.read(0x4000))
-            for i in range(0, header[5]):
-                self.CHRROM = bytes(f.read(0x2000))
+            self.header = f.read(16)
+            header = self.header
+            self.PRGROM = bytes(f.read(header[4] * 0x4000))
+            #for i in range(0, header[4]):
+            #    self.PRGROM += bytes(f.read(0x4000))
+            self.CHRROM = bytes(f.read(header[5] * 0x2000))
+            #for i in range(0, header[5]):
+            #    self.CHRROM += bytes(f.read(0x2000))
 
     def __getitem__(self, item):
         if item < 0x2000:
             return self.RAM[item & 0x7FF]
-        elif item < 0x8000:
-            pass
-        elif item < 0x10000:
+        elif item >= 0x8000 and item <= 0xFFFF:
+            if self.header[4] == 1:
+                return self.PRGROM[item & 0x3FFF]
+            else:
+                return self.PRGROM[item & 0x7FFF]
+        else:
             return self.CHRROM[item & 0x3FFF]
 
     def __setitem__(self, key, value):
