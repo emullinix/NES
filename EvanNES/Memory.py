@@ -3,7 +3,6 @@ __author__ = 'Evan'
 
 class Memory(object):
     RAM = bytearray(2048)
-    
 
     def __init__(self, filename):
         with open(filename, 'rb') as f:
@@ -15,6 +14,7 @@ class Memory(object):
             self.CHRROM = bytes(f.read(header[5] * 0x2000))
             #for i in range(0, header[5]):
             #    self.CHRROM += bytes(f.read(0x2000))
+            self.stack = Stack(self)
 
     def __getitem__(self, item):
         if item < 0x2000:
@@ -31,3 +31,19 @@ class Memory(object):
         if key < 0x2000:
             self.RAM[key & 0x7FF] = value
 
+
+class Stack(object):
+    def __init__(self, m):
+        self.memory = m
+
+    def __getitem__(self, item):
+        if item < 0x100:
+            return self.memory[0x100 + item]
+        else:
+            raise ValueError('%d not in stack' % item)
+
+    def __setitem__(self, key, value):
+        if key < 0x100:
+            self.memory[0x100 + key] = value
+        else:
+            raise ValueError('%d not in stack' % key)

@@ -40,9 +40,13 @@ cpu.SP = 0xFD
 cpu.setP(0x24)
 ppu = PPU.PPU()
 
-while True:
-    print('%X A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3d SL:%3d' % (cpu.PC, cpu.A, cpu.X, cpu.Y, cpu.getP(), cpu.SP, cyc, ppu.scanLine))
-    ticks = 3 * cpu.step()
-    for i in range(ticks):
-        ppu.step()
-    cyc = (cyc + ticks) % 341
+with open('E:\\Downloads\\log.txt', mode='w') as outfile:
+    while True:
+        if ppu.scanLine == 261:
+            print('%X A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3d SL:-1' % (cpu.PC, cpu.A, cpu.X, cpu.Y, cpu.getP(), cpu.SP, cyc))
+        else:
+            print('%X A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3d SL:%-3d' % (cpu.PC, cpu.A, cpu.X, cpu.Y, cpu.getP(), cpu.SP, cyc, ppu.scanLine))
+        ticks = 3 * cpu.step()
+        for i in range(ticks):
+            ppu.step()
+        cyc = (cyc + ticks) % 341

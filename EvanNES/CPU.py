@@ -62,29 +62,29 @@ class CPU(object):
     def absoluteXOp(self, op, checkpage = False):
         low = self.memory[self.PC + 1]
         cycles = [0, 1][checkpage and low + self.X > 0xFF] # TODO check negative?
-        op(self, adr = low + (self.memory[self.PC + 2] << 8) + self.X)
+        op(self, adr=((low + (self.memory[self.PC + 2] << 8) + self.X) & 0xFFFF))
         return cycles
 
     def absoluteYOp(self, op, checkpage = False):
         low = self.memory[self.PC + 1]
         cycles = [0, 1][checkpage and low + self.Y > 0xFF]
-        op(self, adr = low + (self.memory[self.PC + 2] << 8) + self.Y)
+        op(self, adr=((low + (self.memory[self.PC + 2] << 8) + self.Y) & 0xFFFF))
         return cycles
 
     def indirectOp(self, op):
         target = self.memory[self.PC + 1] + (self.memory[self.PC + 2] << 8)
-        op(self, adr = self.memory[target] + (self.memory[target + 1] << 8))
+        op(self, adr=(self.memory[target] + (self.memory[target + 1] << 8)) & 0xFFFF)
         return 0
 
     def indirectXOp(self, op):
         adrlsb = (self.memory[self.PC + 1] + self.X) & 0xFF
-        op(self, adr = self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8))
+        op(self, adr=(self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8)) & 0xFFFF)
         return 0
 
     def indirectYOp(self, op, checkpage = False):
         adrlsb = self.memory[self.PC + 1]
         cycles = [0, 1][checkpage and self.memory[adrlsb] + self.Y > 0xFF]
-        op(self, adr = self.memory[adrlsb] + (self.memory[adrlsb + 1] << 8) + self.Y)
+        op(self, adr=(self.memory[adrlsb] + (self.memory[(adrlsb + 1) & 0xFF] << 8) + self.Y) & 0xFFFF)
         return cycles
 
     def relativeOp(self, op):
@@ -95,7 +95,7 @@ class CPU(object):
         cycles = 1
         if pclow + offset + 2 > 255 or pclow + offset + 2 < 0:
             cycles = 2
-        return 2 + [0, cycles][op(self, adr=offset)]
+        return [0, cycles][op(self, adr=offset + self.PC)]
 
     def ADC(self, imm = 0, adr = -1):
         if adr != -1:
@@ -107,7 +107,7 @@ class CPU(object):
         self.A &= 0xFF
         self.zero =  self.A == 0
         self.neg  = (self.A & 0x80) != 0
-        self.oflow = (apos == mpos) and (self.neg != apos)
+        self.oflow = (apos == mpos) and (self.neg == apos)
 
     def AND(self, imm = 0, adr = -1):
         if adr != -1:
@@ -179,9 +179,9 @@ class CPU(object):
 
     def BRK(self):
         tostore = self.PC + 2
-        self.memory[self.SP] = (tostore >> 8) & 0xFF
-        self.memory[self.SP - 1] = tostore & 0xFF
-        self.memory[self.SP - 2] = [0, 1][self.carry] + [0, 2][self.zero] + [0,4][self.imask] + 48 + [0, 64][self.oflow] + [0, 128][self.neg]
+        self.memory.stack[self.SP] = (tostore >> 8) & 0xFF
+        self.memory.stack[self.SP - 1] = tostore & 0xFF
+        self.memory.stack[self.SP - 2] = [0, 1][self.carry] + [0, 2][self.zero] + [0,4][self.imask] + 48 + [0, 64][self.oflow] + [0, 128][self.neg]
         self.SP -= 3
         self.brk = 1
         self.PC  = self.memory[0xFFFE] + (self.memory[0xFFFF] << 8) - 1 # because the execute code will add one for this inst
@@ -204,7 +204,7 @@ class CPU(object):
         self.carry = False
 
     def CLD(self):
-        pass
+        self.decimal = False
 
     def CLI(self):
         self.imask = False
@@ -261,7 +261,7 @@ class CPU(object):
 
         self.A = self.A ^ imm
         self.zero =  self.A == 0
-        self.neg  = (self.A & 0x8) != 0
+        self.neg  = (self.A & 0x80) != 0
 
     def INC(self, adr):
         value = (0x1 + self.memory[adr]) & 0xFF
@@ -283,9 +283,9 @@ class CPU(object):
         self.PC = adr - 3 # because my code increments the pc by 3 after jumps
 
     def JSR(self, adr):
-        tostore = self.PC + 3
-        self.memory[self.SP]     = (tostore & 0xFF00) >> 8
-        self.memory[self.SP - 1] =  tostore & 0xFF
+        tostore = self.PC + 2
+        self.memory.stack[self.SP]     = (tostore & 0xFF00) >> 8
+        self.memory.stack[self.SP - 1] =  tostore & 0xFF
         self.SP -= 2
         self.PC  = adr - 3 # because my code increments the pc by 3 after jsrs
 
@@ -333,23 +333,23 @@ class CPU(object):
         self.neg  = (self.A & 0x80) != 0
 
     def PHA(self):
-        self.memory[self.SP] = self.A
+        self.memory.stack[self.SP] = self.A
         self.SP -= 1
 
     def PHP(self):
-        self.memory[self.SP] = [0, 1][self.carry] + [0, 2][self.zero] + [0,4][self.imask] + 48 + [0, 64][self.oflow] \
-            + [0, 128][self.neg]
-        self.sp -= 1
+        self.memory.stack[self.SP] = [0, 1][self.carry] + [0, 2][self.zero] + [0,4][self.imask] + 48 + [0, 64][self.oflow] \
+            + [0, 128][self.neg] + [0, 8][self.decimal]
+        self.SP -= 1
 
     def PLA(self):
-        self.SP += 1
-        self.A   = self.memory[self.SP]
+        self.SP  += 1
+        self.A    = self.memory.stack[self.SP]
         self.zero =  self.A == 0
         self.neg  = (self.A & 0x80) != 0
 
     def PLP(self):
         self.SP += 1
-        P = self.memory[self.SP]
+        P = self.memory.stack[self.SP]
         self.carry = (P & 1) == 1
         self.zero  = (P & 2) == 2
         self.imask = (P & 4) == 4
@@ -388,8 +388,8 @@ class CPU(object):
             self.A = imm
 
     def RTI(self):
-        P = self.memory[self.SP + 1]
-        self.PC = self.memory[self.SP + 2] + (self.memory[self.SP + 3] << 8) - 1 # execute code will add one
+        P = self.memory.stack[self.SP + 1]
+        self.PC = self.memory.stack[self.SP + 2] + (self.memory.stack[self.SP + 3] << 8) - 1 # execute code will add one
         self.SP += 3
         self.carry = (P & 1) == 1
         self.zero  = (P & 2) == 2
@@ -399,26 +399,26 @@ class CPU(object):
         self.neg   = (P & 128) == 128
 
     def RTS(self):
-        self.PC = self.memory[self.SP + 1] + (self.memory[self.SP + 2] << 8) - 1 # execute code will add one
+        self.PC = self.memory.stack[self.SP + 1] + (self.memory.stack[self.SP + 2] << 8)
         self.SP += 2
 
     def SBC(self, imm = 0, adr = -1):
         if adr != -1:
             imm = self.memory[adr]
         apos = (self.A & 0x80) == 0
-        mpos = (imm    & 0x80) != 0
+        mpos = (imm    & 0x80) == 0
         self.A = self.A + (imm ^ 0xFF) + [0,1][self.carry]
         self.carry = (self.A & 0x100) != 0
         self.A &= 0xFF
         self.zero =  self.A == 0
         self.neg  = (self.A & 0x80) != 0
-        self.oflow = (apos == mpos) and (self.neg != apos)
+        self.oflow = (apos != mpos) and (self.neg == apos)
 
     def SEC(self):
         self.carry = True
 
     def SED(self):
-        pass
+        self.decimal = True
 
     def SEI(self):
         self.imask = True
@@ -487,9 +487,9 @@ class CPU(object):
         0xF0: ('Branch if equal',            2, (2, False), BEQ, relativeOp),
         0x24: ('Bit test zero page',         2, (3, False), BIT, zeroPageOp),
         0x2C: ('Bit test absolute',          3, (4, False), BIT, absoluteOp),
-        0x30: ('Branch if minus',            2, (2, False), BEQ, relativeOp),
-        0xD0: ('Branch if not equal',        2, (2, False), BEQ, relativeOp),
-        0x10: ('Branch if positive',         2, (2, False), BEQ, relativeOp),
+        0x30: ('Branch if minus',            2, (2, False), BMI, relativeOp),
+        0xD0: ('Branch if not equal',        2, (2, False), BNE, relativeOp),
+        0x10: ('Branch if positive',         2, (2, False), BPL, relativeOp),
         0x00: ('Force interrupt',            1, (7, False), BRK, implicitOp),
         0x50: ('Branch if overflow clear',   2, (2, False), BVC, relativeOp),
         0x70: ('Branch if overflow set',     2, (2, False), BVS, relativeOp),
@@ -581,6 +581,7 @@ class CPU(object):
         0x6E: ('Rotate left absolute',       3, (6, False), ROR, absoluteOp),
         0x7E: ('Rotate left absolute x',     3, (7, False), ROR, absoluteXOp),
         0x40: ('Return from interrupt',      1, (6, False), RTI, implicitOp),
+        0x60: ('Return from subroutine',     1, (6, False), RTS, implicitOp),
         0xE9: ('Sub with carry immediate',   2, (2, False), SBC, immediateOp),
         0xE5: ('Sub with carry zero page',   2, (3, False), SBC, zeroPageOp),
         0xF5: ('Sub with carry zero page x', 2, (4, False), SBC, zeroPageXOp),
@@ -590,7 +591,7 @@ class CPU(object):
         0xE1: ('Sub with carry indirect x',  2, (6, False), SBC, indirectXOp),
         0xF1: ('Sub with carry indirect y',  2, (5, True),  SBC, indirectYOp),
         0x38: ('Set carry flag',             1, (2, False), SEC, implicitOp),
-        0xF8: ('Clear decimal mode',         1, (2, False), SED, implicitOp),
+        0xF8: ('Set decimal flag',           1, (2, False), SED, implicitOp),
         0x78: ('Clear interrupt disable',    1, (2, False), SEI, implicitOp),
         0x85: ('Store accum zero page',      2, (3, False), STA, zeroPageOp),
         0x95: ('Store accum zero page x',    2, (4, False), STA, zeroPageXOp),
