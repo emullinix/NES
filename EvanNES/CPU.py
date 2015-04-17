@@ -73,7 +73,11 @@ class CPU(object):
 
     def indirectOp(self, op):
         target = self.memory[self.PC + 1] + (self.memory[self.PC + 2] << 8)
-        op(self, adr=(self.memory[target] + (self.memory[target + 1] << 8)) & 0xFFFF)
+        if target & 0xFF == 0xFF:
+            msbadr = target & 0xFF00
+        else:
+            msbadr = target + 1
+        op(self, adr=(self.memory[target] + (self.memory[msbadr] << 8)) & 0xFFFF)
         return 0
 
     def indirectXOp(self, op):
