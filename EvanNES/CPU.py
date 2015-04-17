@@ -52,7 +52,7 @@ class CPU(object):
         return 0
 
     def zeroPageYOp(self, op):
-        op(self, adr = (self.memory[self.PC + 1] + self.X) & 0xFF)
+        op(self, adr = (self.memory[self.PC + 1] + self.Y) & 0xFF)
         return 0
 
     def absoluteOp(self, op):
