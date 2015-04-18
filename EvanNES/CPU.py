@@ -267,6 +267,9 @@ class CPU(object):
         self.zero =  self.A == 0
         self.neg  = (self.A & 0x80) != 0
 
+    def IGN(self, adr):
+        _ = self.memory[adr]
+
     def INC(self, adr):
         value = (0x1 + self.memory[adr]) & 0xFF
         self.zero =  value == 0
@@ -292,6 +295,14 @@ class CPU(object):
         self.memory.stack[self.SP - 1] =  tostore & 0xFF
         self.SP -= 2
         self.PC  = adr - 3 # because my code increments the pc by 3 after jsrs
+
+    def LAX(self, imm = 0, adr = -1):
+        if adr != -1:
+            imm = self.memory[adr]
+        self.A    = imm
+        self.X    =  self.A
+        self.zero =  self.X == 0
+        self.neg  = (self.X & 0x80) != 0
 
     def LDA(self, imm = 0, adr = -1):
         if adr != -1:
@@ -357,6 +368,7 @@ class CPU(object):
         self.carry = (P & 1) == 1
         self.zero  = (P & 2) == 2
         self.imask = (P & 4) == 4
+        self.decimal = (P & 8) == 8
         self.brk   = (P & 16) == 16
         self.oflow = (P & 64) == 64
         self.neg   = (P & 128) == 128
@@ -616,6 +628,43 @@ class CPU(object):
         0x8A: ('Transfer x to accumulator',  1, (2, False), TXA, implicitOp),
         0x9A: ('Transfer x to stack ptr',    1, (2, False), TXS, implicitOp),
         0x98: ('Transfer y to accumulator',  1, (2, False), TYA, implicitOp),
+
+        0x04: ('Read and ignore mem',        2, (3, False), IGN, zeroPageOp),
+        0x44: ('Read and ignore mem',        2, (3, False), IGN, zeroPageOp),
+        0x64: ('Read and ignore mem',        2, (3, False), IGN, zeroPageOp),
+        0x0C: ('Read and ignore mem',        3, (4, False), IGN, absoluteOp),
+        0x1C: ('Read and ignore mem',        3, (4, True),  IGN, absoluteXOp),
+        0x3C: ('Read and ignore mem',        3, (4, True),  IGN, absoluteXOp),
+        0x5C: ('Read and ignore mem',        3, (4, True),  IGN, absoluteXOp),
+        0x7C: ('Read and ignore mem',        3, (4, True),  IGN, absoluteXOp),
+        0xDC: ('Read and ignore mem',        3, (4, True),  IGN, absoluteXOp),
+        0xFC: ('Read and ignore mem',        3, (4, True),  IGN, absoluteXOp),
+        0x14: ('Read and ignore mem',        2, (4, False), IGN, zeroPageXOp),
+        0x34: ('Read and ignore mem',        2, (4, False), IGN, zeroPageXOp),
+        0x54: ('Read and ignore mem',        2, (4, False), IGN, zeroPageXOp),
+        0x74: ('Read and ignore mem',        2, (4, False), IGN, zeroPageXOp),
+        0xD4: ('Read and ignore mem',        2, (4, False), IGN, zeroPageXOp),
+        0xF4: ('Read and ignore mem',        2, (4, False), IGN, zeroPageXOp),
+
+        0x1A: ('NOP',                        1, (2, False), NOP, implicitOp),
+        0x3A: ('NOP',                        1, (2, False), NOP, implicitOp),
+        0x5A: ('NOP',                        1, (2, False), NOP, implicitOp),
+        0x7A: ('NOP',                        1, (2, False), NOP, implicitOp),
+        0xDA: ('NOP',                        1, (2, False), NOP, implicitOp),
+        0xFA: ('NOP',                        1, (2, False), NOP, implicitOp),
+
+        0x80: ('Skip immediate byte',        2, (2, False), NOP, implicitOp),
+        0x82: ('Skip immediate byte',        2, (2, False), NOP, implicitOp),
+        0x89: ('Skip immediate byte',        2, (2, False), NOP, implicitOp),
+        0xC2: ('Skip immediate byte',        2, (2, False), NOP, implicitOp),
+        0xE2: ('Skip immediate byte',        2, (2, False), NOP, implicitOp),
+
+        0xA3: ('LDA + TAX',                  2, (6, False), LAX, indirectXOp),
+        0xA7: ('LDA + TAX',                  2, (3, False), LAX, zeroPageOp),
+        0xAF: ('LDA + TAX',                  3, (4, False), LAX, absoluteOp),
+        0xB3: ('LDA + TAX',                  2, (5, True),  LAX, indirectYOp),
+        0xB7: ('LDA + TAX',                  2, (4, False), LAX, zeroPageYOp),
+        0xBF: ('LDA + TAX',                  3, (4, False), LAX, absoluteYOp),
     }
 
     def step(self):
