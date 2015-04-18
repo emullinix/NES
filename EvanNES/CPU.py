@@ -418,6 +418,9 @@ class CPU(object):
         self.PC = self.memory.stack[self.SP + 1] + (self.memory.stack[self.SP + 2] << 8)
         self.SP += 2
 
+    def SAX(self, adr):
+        self.memory[adr] = self.A & self.X
+
     def SBC(self, imm = 0, adr = -1):
         if adr != -1:
             imm = self.memory[adr]
@@ -665,6 +668,11 @@ class CPU(object):
         0xB3: ('LDA + TAX',                  2, (5, True),  LAX, indirectYOp),
         0xB7: ('LDA + TAX',                  2, (4, False), LAX, zeroPageYOp),
         0xBF: ('LDA + TAX',                  3, (4, False), LAX, absoluteYOp),
+
+        0x83: ('Store bitwise and of A & X', 2, (6, False), SAX, indirectXOp),
+        0x87: ('Store bitwise and of A & X', 2, (3, False), SAX, zeroPageOp),
+        0x8F: ('Store bitwise and of A & X', 3, (4, False), SAX, absoluteOp),
+        0x97: ('Store bitwise and of A & X', 2, (4, False), SAX, zeroPageYOp),
     }
 
     def step(self):
