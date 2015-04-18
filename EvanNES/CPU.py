@@ -243,6 +243,14 @@ class CPU(object):
         self.carry =  diff >= 0
         self.neg   = (diff & 0x80) != 0
 
+    def DCP(self, adr):
+        value = (0xFF + self.memory[adr]) & 0xFF
+        self.memory[adr] = value
+        diff = self.A - value
+        self.zero  =  diff == 0
+        self.carry =  diff >= 0
+        self.neg   = (diff & 0x80) != 0
+
     def DEC(self, adr):
         value = (0xFF + self.memory[adr]) & 0xFF
         self.zero =  value == 0
@@ -673,6 +681,16 @@ class CPU(object):
         0x87: ('Store bitwise and of A & X', 2, (3, False), SAX, zeroPageOp),
         0x8F: ('Store bitwise and of A & X', 3, (4, False), SAX, absoluteOp),
         0x97: ('Store bitwise and of A & X', 2, (4, False), SAX, zeroPageYOp),
+
+        0xEB: ('Sub with carry immediate',   2, (2, False), SBC, immediateOp),
+
+        0xC3: ('Decrement and compare',      2, (8, False), DCP, indirectXOp),
+        0xC7: ('Decrement and compare',      2, (5, False), DCP, zeroPageOp),
+        0xCF: ('Decrement and compare',      3, (6, False), DCP, absoluteOp),
+        0xD3: ('Decrement and compare',      2, (8, False), DCP, indirectYOp),
+        0xD7: ('Decrement and compare',      2, (6, False), DCP, zeroPageXOp),
+        0xDB: ('Decrement and compare',      3, (7, False), DCP, absoluteYOp),
+        0xDF: ('Decrement and compare',      3, (7, False), DCP, absoluteXOp),
     }
 
     def step(self):
